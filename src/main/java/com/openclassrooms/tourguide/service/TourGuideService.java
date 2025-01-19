@@ -1,5 +1,6 @@
 package com.openclassrooms.tourguide.service;
 
+import com.openclassrooms.tourguide.dto.NearbyAttractionDTO;
 import com.openclassrooms.tourguide.helper.InternalTestHelper;
 import com.openclassrooms.tourguide.tracker.Tracker;
 import com.openclassrooms.tourguide.user.User;
@@ -29,6 +30,7 @@ import gpsUtil.location.VisitedLocation;
 
 import tripPricer.Provider;
 import tripPricer.TripPricer;
+import java.util.Comparator;
 
 @Service
 public class TourGuideService {
@@ -96,14 +98,43 @@ public class TourGuideService {
 	}
 
 	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-		List<Attraction> nearbyAttractions = new ArrayList<>();
-		for (Attraction attraction : gpsUtil.getAttractions()) {
-			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-				nearbyAttractions.add(attraction);
-			}
+
+		List<Attraction> nearbyAttractions = gpsUtil.getAttractions().stream()
+				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(attraction, visitedLocation.location)))
+				.limit(5)
+				.toList();
+			return nearbyAttractions;
+	}
+
+
+	public List<NearbyAttractionDTO> getNearByAttractionsDTO(User user, VisitedLocation visitedLocation) {
+		Location userLocation = visitedLocation.location;
+
+		List<Attraction> nearestAttractions = gpsUtil.getAttractions().stream()
+				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(attraction, userLocation)))
+				.limit(5)
+				.toList();
+
+		List<NearbyAttractionDTO> nearbyAttractionDTOs = new ArrayList<>();
+
+		for (Attraction attraction : nearestAttractions) {
+			double distance = rewardsService.getDistance(attraction, userLocation);
+			int rewardPoints = rewardsService.getRewardPoints(attraction, user);
+
+			NearbyAttractionDTO dto = new NearbyAttractionDTO(
+					attraction.attractionName,
+					attraction.latitude,
+					attraction.longitude,
+					userLocation.latitude,
+					userLocation.longitude,
+					distance,
+					rewardPoints
+			);
+
+			nearbyAttractionDTOs.add(dto);
 		}
 
-		return nearbyAttractions;
+		return nearbyAttractionDTOs;
 	}
 
 	private void addShutDownHook() {
