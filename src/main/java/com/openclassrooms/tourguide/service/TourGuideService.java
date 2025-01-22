@@ -97,6 +97,7 @@ public class TourGuideService {
 		return visitedLocation;
 	}
 
+	/*
 	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
 		List<Attraction> nearbyAttractions = new ArrayList<>();
 		for (Attraction attraction : gpsUtil.getAttractions()) {
@@ -107,9 +108,9 @@ public class TourGuideService {
 
 		return nearbyAttractions;
 	}
+*/
 
 
-	/*
 	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
 
 		List<Attraction> nearbyAttractions = gpsUtil.getAttractions().stream()
@@ -118,7 +119,7 @@ public class TourGuideService {
 				.toList();
 			return nearbyAttractions;
 	}
-	*/
+
 
 
 

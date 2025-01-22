@@ -93,7 +93,7 @@ public class TestTourGuideService {
 	}
 
 
-	 @Disabled // Not yet implemented
+	 //@Disabled // Not yet implemented
 	@Test
 	public void getNearbyAttractions() {
 		GpsUtil gpsUtil = new GpsUtil();
