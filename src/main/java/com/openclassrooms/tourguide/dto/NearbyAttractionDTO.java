@@ -1,5 +1,6 @@
 package com.openclassrooms.tourguide.dto;
 
+import gpsUtil.location.Location;
 import lombok.Getter;
 
 @Getter
@@ -11,6 +12,7 @@ public class NearbyAttractionDTO {
     private double userLongitude;
     private double distanceMiles;
     private int rewardPoints;
+    private Location userLocation;
 
     public NearbyAttractionDTO(String attractionName,
                                double attractionLatitude,

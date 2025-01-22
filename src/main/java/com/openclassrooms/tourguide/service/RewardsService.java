@@ -11,6 +11,7 @@ import rewardCentral.RewardCentral;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 public class RewardsService {
@@ -42,25 +43,16 @@ public class RewardsService {
 	 * On verrouille l'utilisateur pour éviter la ConcurrentModificationException.
 	 */
 	public void calculateRewards(User user) {
-		synchronized (user) {
-			// Récupération de la liste sous le verrou
-			List<VisitedLocation> userLocations = user.getVisitedLocations();
-			List<Attraction> attractions = gpsUtil.getAttractions();
+		//List<VisitedLocation> userLocations = user.getVisitedLocations();
+		CopyOnWriteArrayList<VisitedLocation> userLocations = new CopyOnWriteArrayList<>(user.getVisitedLocations());
+		List<Attraction> attractions = gpsUtil.getAttractions();
+		//logger.info("le nombre de Rewards {} ", user.getUserRewards().size());
 
-			// Double boucle : positions visitées x attractions
-			for (VisitedLocation visitedLocation : userLocations) {
-				for (Attraction attraction : attractions) {
-					// Vérifie si on n'a pas déjà une reward pour cette attraction
-					boolean alreadyRewarded = user.getUserRewards().stream()
-							.anyMatch(r -> r.attraction.attractionName.equals(attraction.attractionName));
-
-					if (!alreadyRewarded) {
-						// Vérifier la proximité
-						if (nearAttraction(visitedLocation, attraction)) {
-							// Ajouter la reward
-							int rewardPoints = getRewardPoints(attraction, user);
-							user.addUserReward(new UserReward(visitedLocation, attraction, rewardPoints));
-						}
+		for(VisitedLocation visitedLocation : userLocations) {
+			for(Attraction attraction : attractions) {
+				if(user.getUserRewards().stream().filter(r -> r.attraction.attractionName.equals(attraction.attractionName)).count() == 0) {
+					if(nearAttraction(visitedLocation, attraction)) {
+						user.addUserReward(new UserReward(visitedLocation, attraction, getRewardPoints(attraction, user)));
 					}
 				}
 			}
