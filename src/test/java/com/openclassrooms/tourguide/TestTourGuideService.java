@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.UUID;
 
+import com.openclassrooms.tourguide.dto.NearbyAttractionDTO;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ public class TestTourGuideService {
 		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
 		User user = new User(UUID.randomUUID(), "jon", "000", "jon@tourGuide.com");
-		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user);
+		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user).join();
 		tourGuideService.tracker.stopTracking();
 		assertTrue(visitedLocation.userId.equals(user.getUserId()));
 	}
@@ -85,7 +86,7 @@ public class TestTourGuideService {
 		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
 		User user = new User(UUID.randomUUID(), "jon", "000", "jon@tourGuide.com");
-		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user);
+		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user).join();
 
 		tourGuideService.tracker.stopTracking();
 
@@ -102,9 +103,9 @@ public class TestTourGuideService {
 		TourGuideService tourGuideService = new TourGuideService(gpsUtil, rewardsService);
 
 		User user = new User(UUID.randomUUID(), "jon", "000", "jon@tourGuide.com");
-		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user);
+		VisitedLocation visitedLocation = tourGuideService.trackUserLocation(user).join();
 
-		List<Attraction> attractions = tourGuideService.getNearByAttractions(visitedLocation);
+		List<NearbyAttractionDTO> attractions = tourGuideService.getNearByAttractions(visitedLocation);
 
 		tourGuideService.tracker.stopTracking();
 

@@ -16,6 +16,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -40,10 +43,12 @@ public class TourGuideService {
 	private final TripPricer tripPricer = new TripPricer();
 	public final Tracker tracker;
 	boolean testMode = true;
+	private final ExecutorService executor = Executors.newFixedThreadPool(16);
 
 	public TourGuideService(GpsUtil gpsUtil, RewardsService rewardsService) {
 		this.gpsUtil = gpsUtil;
 		this.rewardsService = rewardsService;
+
 		
 		Locale.setDefault(Locale.US);
 
@@ -62,9 +67,9 @@ public class TourGuideService {
 	}
 
 	public VisitedLocation getUserLocation(User user) {
-		VisitedLocation visitedLocation = (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation()
+		Object visitedLocation = (user.getVisitedLocations().size() > 0) ? user.getLastVisitedLocation()
 				: trackUserLocation(user);
-		return visitedLocation;
+		return (VisitedLocation) visitedLocation;
 	}
 
 	public User getUser(String userName) {
@@ -89,69 +94,107 @@ public class TourGuideService {
 		user.setTripDeals(providers);
 		return providers;
 	}
+/*
+	public void trackAllUsersLocations(List<User> allUsers) {
+		List<CompletableFuture<VisitedLocation>> futures = allUsers.stream()
+				.map(user -> CompletableFuture.supplyAsync(() -> trackUserLocation(user), executor))
+				.collect(Collectors.toList());
 
-	public VisitedLocation trackUserLocation(User user) {
-		VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
-		user.addToVisitedLocations(visitedLocation);
-		rewardsService.calculateRewards(user);
-		return visitedLocation;
+		// Attendre la fin de toutes les tâches
+		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 	}
-
-	/*
-	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
-		List<Attraction> nearbyAttractions = new ArrayList<>();
-		for (Attraction attraction : gpsUtil.getAttractions()) {
-			if (rewardsService.isWithinAttractionProximity(attraction, visitedLocation.location)) {
-				nearbyAttractions.add(attraction);
-			}
-		}
-
-		return nearbyAttractions;
-	}
-*/
+	*/
 
 
-	public List<Attraction> getNearByAttractions(VisitedLocation visitedLocation) {
+	public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
+		CompletableFuture<VisitedLocation> visitedLocationCompletableFuture = CompletableFuture.supplyAsync(() -> {
+			VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId()); // Simule l'obtention d'une localisation
+			return visitedLocation;
 
-		List<Attraction> nearbyAttractions = gpsUtil.getAttractions().stream()
-				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(attraction, visitedLocation.location)))
-				.limit(5)
-				.toList();
-			return nearbyAttractions;
+		} ,executor).thenApplyAsync((visitedLocation)->{
+			user.addToVisitedLocations(visitedLocation );
+			return visitedLocation;
+		},executor);
+		return visitedLocationCompletableFuture;
 	}
 
 
-
-
-	public List<NearbyAttractionDTO> getNearByAttractionsDTO(User user, VisitedLocation visitedLocation) {
+	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
 		Location userLocation = visitedLocation.location;
 
+		logger.info("userLocation -------------- : {} {} ",  userLocation.latitude, userLocation.longitude);
 		List<Attraction> nearestAttractions = gpsUtil.getAttractions().stream()
-				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(attraction, userLocation)))
+				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(visitedLocation.location, attraction)))
 				.limit(5)
 				.toList();
 
 		List<NearbyAttractionDTO> nearbyAttractionDTOs = new ArrayList<>();
 
+
 		for (Attraction attraction : nearestAttractions) {
-			double distance = rewardsService.getDistance(attraction, userLocation);
-			int rewardPoints = rewardsService.getRewardPoints(attraction, user);
 
-			NearbyAttractionDTO dto = new NearbyAttractionDTO(
-					attraction.attractionName,
-					attraction.latitude,
-					attraction.longitude,
-					userLocation.latitude,
-					userLocation.longitude,
-					distance,
-					rewardPoints
-			);
+			NearbyAttractionDTO nearbyAttractionDTO = new NearbyAttractionDTO();
+			nearbyAttractionDTO.setAttractionName(attraction.attractionName);
+			Location locationAttraction = new Location(attraction.latitude, attraction.longitude);
+			nearbyAttractionDTO.setAttractionLocation(locationAttraction);
 
-			nearbyAttractionDTOs.add(dto);
+			Location locationUser = visitedLocation.location;
+			nearbyAttractionDTO.setUserLocation(locationUser);
+			double distance = rewardsService.getDistance(visitedLocation.location, attraction);
+			nearbyAttractionDTO.setDistanceMiles(distance);
+
+
+
+
+			int rewardPoints = rewardsService.getRewardsCentral().getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId);
+			nearbyAttractionDTO.setRewardPoints(rewardPoints);
+
+
+			nearbyAttractionDTOs.add(nearbyAttractionDTO);
 		}
 
 		return nearbyAttractionDTOs;
 	}
+
+/*
+	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
+		Location userLocation = visitedLocation.location;
+
+		logger.info("userLocation -------------- : {} {} ",  userLocation.latitude, userLocation.longitude);
+		List<Attraction> nearestAttractions = gpsUtil.getAttractions().stream()
+				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(visitedLocation.location, attraction)))
+				.limit(5)
+				.toList();
+
+		List<NearbyAttractionDTO> nearbyAttractionDTOs = new ArrayList<>();
+
+
+		for (Attraction attraction : nearestAttractions) {
+
+			NearbyAttractionDTO nearbyAttractionDTO = new NearbyAttractionDTO();
+			nearbyAttractionDTO.setAttractionName(attraction.attractionName);
+			Location locationAttraction = new Location(attraction.latitude, attraction.longitude);
+		    nearbyAttractionDTO.setAttractionLocation(locationAttraction);
+
+			Location locationUser = visitedLocation.location;
+			nearbyAttractionDTO.setUserLocation(locationUser);
+			double distance = rewardsService.getDistance(visitedLocation.location, attraction);
+			nearbyAttractionDTO.setDistanceMiles(distance);
+
+
+
+
+			int rewardPoints = rewardsService.getRewardsCentral().getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId);
+			nearbyAttractionDTO.setRewardPoints(rewardPoints);
+
+
+			nearbyAttractionDTOs.add(nearbyAttractionDTO);
+		}
+
+		return nearbyAttractionDTOs;
+	}
+*/
+
 
 	private void addShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {

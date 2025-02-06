@@ -49,7 +49,7 @@ public class TourGuideController {
         VisitedLocation visitedLocation = tourGuideService.getUserLocation(user);
 
         // On délègue à un service pour construire la liste des 5 attractions
-        return tourGuideService.getNearByAttractionsDTO(user, visitedLocation);
+        return tourGuideService.getNearByAttractions( visitedLocation);
     }
     
     @RequestMapping("/getRewards") 
