@@ -5,6 +5,15 @@ import com.openclassrooms.tourguide.helper.InternalTestHelper;
 import com.openclassrooms.tourguide.tracker.Tracker;
 import com.openclassrooms.tourguide.user.User;
 import com.openclassrooms.tourguide.user.UserReward;
+import gpsUtil.GpsUtil;
+import gpsUtil.location.Attraction;
+import gpsUtil.location.Location;
+import gpsUtil.location.VisitedLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import tripPricer.Provider;
+import tripPricer.TripPricer;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -21,18 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import gpsUtil.GpsUtil;
-import gpsUtil.location.Attraction;
-import gpsUtil.location.Location;
-import gpsUtil.location.VisitedLocation;
-
-import tripPricer.Provider;
-import tripPricer.TripPricer;
 import java.util.Comparator;
 
 @Service
@@ -43,13 +40,13 @@ public class TourGuideService {
 	private final TripPricer tripPricer = new TripPricer();
 	public final Tracker tracker;
 	boolean testMode = true;
-	private final ExecutorService executor = Executors.newFixedThreadPool(16);
+
+	// Utilisation d'un pool de threads fixe avec un nombre limité de threads (500 ici)
+	private final ExecutorService executor = Executors.newFixedThreadPool(1000);
 
 	public TourGuideService(GpsUtil gpsUtil, RewardsService rewardsService) {
 		this.gpsUtil = gpsUtil;
 		this.rewardsService = rewardsService;
-
-		
 		Locale.setDefault(Locale.US);
 
 		if (testMode) {
@@ -77,7 +74,7 @@ public class TourGuideService {
 	}
 
 	public List<User> getAllUsers() {
-		return internalUserMap.values().stream().collect(Collectors.toList());
+		return new ArrayList<>(internalUserMap.values());
 	}
 
 	public void addUser(User user) {
@@ -94,107 +91,48 @@ public class TourGuideService {
 		user.setTripDeals(providers);
 		return providers;
 	}
-/*
-	public void trackAllUsersLocations(List<User> allUsers) {
-		List<CompletableFuture<VisitedLocation>> futures = allUsers.stream()
-				.map(user -> CompletableFuture.supplyAsync(() -> trackUserLocation(user), executor))
-				.collect(Collectors.toList());
-
-		// Attendre la fin de toutes les tâches
-		CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-	}
-	*/
-
 
 	public CompletableFuture<VisitedLocation> trackUserLocation(User user) {
-		CompletableFuture<VisitedLocation> visitedLocationCompletableFuture = CompletableFuture.supplyAsync(() -> {
-			VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId()); // Simule l'obtention d'une localisation
+		return CompletableFuture.supplyAsync(() -> {
+			VisitedLocation visitedLocation = gpsUtil.getUserLocation(user.getUserId());
 			return visitedLocation;
-
-		} ,executor).thenApplyAsync((visitedLocation)->{
-			user.addToVisitedLocations(visitedLocation );
+		}, executor).thenApplyAsync(visitedLocation -> {
+			user.addToVisitedLocations(visitedLocation);
+			rewardsService.calculateRewardsAsync(user).join();
 			return visitedLocation;
-		},executor);
-		return visitedLocationCompletableFuture;
+		}, executor);
 	}
+
+
 
 
 	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
 		Location userLocation = visitedLocation.location;
 
-		logger.info("userLocation -------------- : {} {} ",  userLocation.latitude, userLocation.longitude);
 		List<Attraction> nearestAttractions = gpsUtil.getAttractions().stream()
 				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(visitedLocation.location, attraction)))
 				.limit(5)
-				.toList();
+				.collect(Collectors.toList());
 
 		List<NearbyAttractionDTO> nearbyAttractionDTOs = new ArrayList<>();
 
-
 		for (Attraction attraction : nearestAttractions) {
-
 			NearbyAttractionDTO nearbyAttractionDTO = new NearbyAttractionDTO();
 			nearbyAttractionDTO.setAttractionName(attraction.attractionName);
 			Location locationAttraction = new Location(attraction.latitude, attraction.longitude);
 			nearbyAttractionDTO.setAttractionLocation(locationAttraction);
 
-			Location locationUser = visitedLocation.location;
-			nearbyAttractionDTO.setUserLocation(locationUser);
+			nearbyAttractionDTO.setUserLocation(userLocation);
 			double distance = rewardsService.getDistance(visitedLocation.location, attraction);
 			nearbyAttractionDTO.setDistanceMiles(distance);
-
-
-
 
 			int rewardPoints = rewardsService.getRewardsCentral().getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId);
 			nearbyAttractionDTO.setRewardPoints(rewardPoints);
 
-
 			nearbyAttractionDTOs.add(nearbyAttractionDTO);
 		}
-
 		return nearbyAttractionDTOs;
 	}
-
-/*
-	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
-		Location userLocation = visitedLocation.location;
-
-		logger.info("userLocation -------------- : {} {} ",  userLocation.latitude, userLocation.longitude);
-		List<Attraction> nearestAttractions = gpsUtil.getAttractions().stream()
-				.sorted(Comparator.comparingDouble(attraction -> rewardsService.getDistance(visitedLocation.location, attraction)))
-				.limit(5)
-				.toList();
-
-		List<NearbyAttractionDTO> nearbyAttractionDTOs = new ArrayList<>();
-
-
-		for (Attraction attraction : nearestAttractions) {
-
-			NearbyAttractionDTO nearbyAttractionDTO = new NearbyAttractionDTO();
-			nearbyAttractionDTO.setAttractionName(attraction.attractionName);
-			Location locationAttraction = new Location(attraction.latitude, attraction.longitude);
-		    nearbyAttractionDTO.setAttractionLocation(locationAttraction);
-
-			Location locationUser = visitedLocation.location;
-			nearbyAttractionDTO.setUserLocation(locationUser);
-			double distance = rewardsService.getDistance(visitedLocation.location, attraction);
-			nearbyAttractionDTO.setDistanceMiles(distance);
-
-
-
-
-			int rewardPoints = rewardsService.getRewardsCentral().getAttractionRewardPoints(attraction.attractionId, visitedLocation.userId);
-			nearbyAttractionDTO.setRewardPoints(rewardPoints);
-
-
-			nearbyAttractionDTOs.add(nearbyAttractionDTO);
-		}
-
-		return nearbyAttractionDTOs;
-	}
-*/
-
 
 	private void addShutDownHook() {
 		Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -205,13 +143,11 @@ public class TourGuideService {
 	}
 
 	/**********************************************************************************
-	 * 
+	 *
 	 * Methods Below: For Internal Testing
-	 * 
+	 *
 	 **********************************************************************************/
 	private static final String tripPricerApiKey = "test-server-api-key";
-	// Database connection will be used for external users, but for testing purposes
-	// internal users are provided and stored in memory
 	private final Map<String, User> internalUserMap = new HashMap<>();
 
 	private void initializeInternalUsers() {
@@ -221,7 +157,6 @@ public class TourGuideService {
 			String email = userName + "@tourGuide.com";
 			User user = new User(UUID.randomUUID(), userName, phone, email);
 			generateUserLocationHistory(user);
-
 			internalUserMap.put(userName, user);
 		});
 		logger.debug("Created " + InternalTestHelper.getInternalUserNumber() + " internal test users.");
@@ -250,5 +185,4 @@ public class TourGuideService {
 		LocalDateTime localDateTime = LocalDateTime.now().minusDays(new Random().nextInt(30));
 		return Date.from(localDateTime.toInstant(ZoneOffset.UTC));
 	}
-
 }

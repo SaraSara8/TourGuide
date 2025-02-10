@@ -2,7 +2,10 @@ package com.openclassrooms.tourguide.user;
 
 import gpsUtil.location.Attraction;
 import gpsUtil.location.VisitedLocation;
+import lombok.Data;
 
+
+@Data
 public class UserReward {
 
 	public final VisitedLocation visitedLocation;
@@ -13,7 +16,7 @@ public class UserReward {
 		this.attraction = attraction;
 		this.rewardPoints = rewardPoints;
 	}
-	
+
 	public UserReward(VisitedLocation visitedLocation, Attraction attraction) {
 		this.visitedLocation = visitedLocation;
 		this.attraction = attraction;
@@ -22,9 +25,9 @@ public class UserReward {
 	public void setRewardPoints(int rewardPoints) {
 		this.rewardPoints = rewardPoints;
 	}
-	
+
 	public int getRewardPoints() {
 		return rewardPoints;
 	}
-	
+
 }
