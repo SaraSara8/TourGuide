@@ -27,7 +27,12 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-       # Étape 2.2 : Installer et configurer de maven   
+       # Étape 2.2 : Installer et configurer de maven
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v4
+        with:
+          maven-version: '3.8.6'  # Version recommandée, ajustez si nécessaire
+
 
       # Étape 3 : Installer manuellement les dépendances locales
       # Utilisation de chemins relatifs (le dossier libs doit être à la racine du projet)
