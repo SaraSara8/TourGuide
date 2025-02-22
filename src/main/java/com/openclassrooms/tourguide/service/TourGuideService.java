@@ -42,7 +42,7 @@ public class TourGuideService {
 	boolean testMode = true;
 
 	// Utilisation d'un pool de threads fixe avec un nombre limité de threads (500 ici)
-	private final ExecutorService executor = Executors.newFixedThreadPool(1000);
+	private final ExecutorService executor = Executors.newFixedThreadPool(500);
 
 	public TourGuideService(GpsUtil gpsUtil, RewardsService rewardsService) {
 		this.gpsUtil = gpsUtil;
@@ -103,9 +103,12 @@ public class TourGuideService {
 		}, executor);
 	}
 
-
-
-
+	/**
+	     * Récupère les 5 attractions les plus proches d'un utilisateur.
+	     *
+	     * @param visitedLocation Localisation actuelle de l'utilisateur.
+	     * @return Liste des attractions à proximité avec leurs détails.
+	     */
 	public List<NearbyAttractionDTO> getNearByAttractions(VisitedLocation visitedLocation) {
 		Location userLocation = visitedLocation.location;
 

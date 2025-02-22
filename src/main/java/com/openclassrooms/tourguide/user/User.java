@@ -19,7 +19,7 @@ public class User {
 
 	private UserPreferences userPreferences = new UserPreferences();
 	private List<Provider> tripDeals = new CopyOnWriteArrayList<>();
-
+	// projet sara
 	public User(UUID userId, String userName, String phoneNumber, String emailAddress) {
 		this.userId = userId;
 		this.userName = userName;
